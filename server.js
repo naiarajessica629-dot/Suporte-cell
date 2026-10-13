@@ -12,6 +12,46 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
 const PUBLIC = path.join(__dirname, "public");
 
+// ---------- Login do atendente ----------
+// Defina ADMIN_USER e ADMIN_PASS nas variáveis de ambiente do Render.
+// Enquanto não definir, vale o padrão abaixo (TROQUE assim que publicar).
+const ADMIN_USER = process.env.ADMIN_USER || "admin";
+const ADMIN_PASS = process.env.ADMIN_PASS || "suporte123";
+const USING_DEFAULT_PASS = !process.env.ADMIN_PASS;
+const SESSION_HOURS = 12;
+const authTokens = new Map(); // token -> expiresAt
+
+function timingEqual(a, b) {
+  const ba = Buffer.from(String(a)), bb = Buffer.from(String(b));
+  if (ba.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ba, bb);
+}
+function newAuthToken() {
+  const token = crypto.randomBytes(24).toString("hex");
+  authTokens.set(token, Date.now() + SESSION_HOURS * 3600000);
+  return token;
+}
+function parseCookies(req) {
+  const out = {};
+  (req.headers.cookie || "").split(";").forEach((c) => {
+    const i = c.indexOf("=");
+    if (i > -1) out[c.slice(0, i).trim()] = decodeURIComponent(c.slice(i + 1).trim());
+  });
+  return out;
+}
+function isAuthed(req) {
+  const t = parseCookies(req).adm;
+  if (!t) return false;
+  const exp = authTokens.get(t);
+  if (!exp) return false;
+  if (exp < Date.now()) { authTokens.delete(t); return false; }
+  return true;
+}
+setInterval(() => {
+  const now = Date.now();
+  for (const [t, exp] of authTokens) if (exp < now) authTokens.delete(t);
+}, 300000);
+
 // ---------- STUN/TURN entregues ao navegador ----------
 function iceServers() {
   const list = [{ urls: "stun:stun.l.google.com:19302" }];
@@ -25,7 +65,7 @@ function iceServers() {
   return list;
 }
 
-// ---------- Sessões em memória (produção séria: Redis com TTL) ----------
+// ---------- Sessões de suporte em memória (produção séria: Redis com TTL) ----------
 const ALPHA = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 const sessions = new Map();
 function makeCode() {
@@ -49,25 +89,46 @@ function sendFile(res, file) {
     res.end(data);
   });
 }
-function json(res, code, obj) { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify(obj)); }
+function json(res, code, obj, headers) { res.writeHead(code, Object.assign({ "Content-Type": "application/json" }, headers || {})); res.end(JSON.stringify(obj)); }
+function readBody(req, cb) {
+  let body = "";
+  req.on("data", (c) => { body += c; if (body.length > 1e4) req.destroy(); });
+  req.on("end", () => { try { cb(JSON.parse(body || "{}")); } catch { cb({}); } });
+}
 
 const server = http.createServer((req, res) => {
   const u = new URL(req.url, "http://" + (req.headers.host || "localhost"));
   const p = u.pathname;
+  const secure = (req.headers["x-forwarded-proto"] || "").includes("https");
 
-  // API: criar convite
+  // --- Login ---
+  if (p === "/api/login" && req.method === "POST") {
+    return readBody(req, (d) => {
+      if (timingEqual(d.user, ADMIN_USER) && timingEqual(d.pass, ADMIN_PASS)) {
+        const token = newAuthToken();
+        const cookie = "adm=" + token + "; HttpOnly; Path=/; SameSite=Lax; Max-Age=" + SESSION_HOURS * 3600 + (secure ? "; Secure" : "");
+        return json(res, 200, { ok: true }, { "Set-Cookie": cookie });
+      }
+      json(res, 401, { error: "Usuário ou senha incorretos" });
+    });
+  }
+  if (p === "/api/logout" && req.method === "POST") {
+    const t = parseCookies(req).adm;
+    if (t) authTokens.delete(t);
+    return json(res, 200, { ok: true }, { "Set-Cookie": "adm=; HttpOnly; Path=/; Max-Age=0" });
+  }
+  if (p === "/api/me") return json(res, 200, { authed: isAuthed(req), defaultPass: USING_DEFAULT_PASS });
+
+  // --- API de suporte (criar convite exige login) ---
   if (p === "/api/sessions" && req.method === "POST") {
-    let body = "";
-    req.on("data", (c) => { body += c; if (body.length > 1e4) req.destroy(); });
-    req.on("end", () => {
-      let d = {}; try { d = JSON.parse(body || "{}"); } catch {}
+    if (!isAuthed(req)) return json(res, 401, { error: "não autenticado" });
+    return readBody(req, (d) => {
       const minutes = Math.min(60, Math.max(1, parseInt(d.minutes, 10) || 15));
       const code = makeCode();
       sessions.set(code, { createdAt: Date.now(), expiresAt: Date.now() + minutes * 60000, label: String(d.label || "cliente").slice(0, 80), status: "pending" });
       const base = (req.headers["x-forwarded-proto"] || "http") + "://" + req.headers.host;
       json(res, 200, { code, url: base + "/s/" + code, expiresInMin: minutes });
     });
-    return;
   }
   if (p.startsWith("/api/sessions/") && req.method === "GET") {
     const s = sessions.get(p.split("/").pop());
@@ -75,12 +136,17 @@ const server = http.createServer((req, res) => {
   }
   if (p === "/api/ice") return json(res, 200, { iceServers: iceServers() });
 
-  // Página do cliente: /s/CODIGO
-  if (p.startsWith("/s/")) return sendFile(res, path.join(PUBLIC, "cliente.html"));
+  // --- Páginas ---
+  if (p === "/login") return sendFile(res, path.join(PUBLIC, "login.html"));
+  if (p.startsWith("/s/")) return sendFile(res, path.join(PUBLIC, "cliente.html")); // cliente: sem login
+  if (p === "/" || p === "/index.html") {
+    if (!isAuthed(req)) { res.writeHead(302, { Location: "/login" }); return res.end(); }
+    return sendFile(res, path.join(PUBLIC, "index.html"));
+  }
 
-  // Estáticos
-  let file = p === "/" ? "index.html" : p.replace(/^\/+/, "");
-  file = path.normalize(file).replace(/^(\.\.(\/|\\|$))+/, ""); // anti path traversal
+  // --- Estáticos (css/js compartilhados com a página do cliente) ---
+  let file = p.replace(/^\/+/, "");
+  file = path.normalize(file).replace(/^(\.\.(\/|\\|$))+/, "");
   const full = path.join(PUBLIC, file);
   if (!full.startsWith(PUBLIC)) { res.writeHead(403); return res.end("proibido"); }
   sendFile(res, full);
@@ -88,7 +154,7 @@ const server = http.createServer((req, res) => {
 
 // ---------- WebSocket (RFC 6455) sem biblioteca ----------
 const GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-const rooms = new Map(); // code -> { publisher, viewer }
+const rooms = new Map();
 
 function wsSend(sock, obj) {
   if (!sock || sock.destroyed) return;
@@ -112,12 +178,11 @@ server.on("upgrade", (req, socket) => {
     "Sec-WebSocket-Accept: " + accept + "\r\n\r\n"
   );
 
-  const conn = { socket, role: null, code: null };
+  const conn = { socket, role: null, code: null, authed: isAuthed(req) };
   let buf = Buffer.alloc(0);
 
   socket.on("data", (chunk) => {
     buf = Buffer.concat([buf, chunk]);
-    // Parse de frames de texto mascarados (cliente -> servidor)
     while (buf.length >= 2) {
       const opcode = buf[0] & 0x0f;
       const masked = (buf[1] & 0x80) !== 0;
@@ -134,8 +199,8 @@ server.on("upgrade", (req, socket) => {
       } else payload = buf.slice(offset, offset + len);
       buf = buf.slice(need);
 
-      if (opcode === 0x8) { socket.end(); return; }        // close
-      if (opcode === 0x9) { continue; }                     // ping (ignorado)
+      if (opcode === 0x8) { socket.end(); return; }
+      if (opcode === 0x9) { continue; }
       if (opcode === 0x1) onMessage(conn, payload.toString("utf8"));
     }
   });
@@ -148,6 +213,8 @@ function onMessage(conn, raw) {
   let m; try { m = JSON.parse(raw); } catch { return; }
 
   if (m.t === "join") {
+    // O atendente (viewer) precisa estar logado; o cliente (publisher) não.
+    if (m.role === "viewer" && !conn.authed) return wsSend(conn.socket, { t: "error", reason: "Não autenticado" });
     const s = sessions.get(m.code);
     if (!s) return wsSend(conn.socket, { t: "error", reason: "Sessão inexistente ou expirada" });
     if (s.expiresAt < Date.now() && s.status !== "connected") return wsSend(conn.socket, { t: "error", reason: "Link expirado" });
@@ -187,4 +254,7 @@ function onClose(conn) {
   }
 }
 
-server.listen(PORT, () => console.log("Suporte Remoto no ar em http://localhost:" + PORT));
+server.listen(PORT, () => {
+  console.log("Suporte Remoto no ar em http://localhost:" + PORT);
+  if (USING_DEFAULT_PASS) console.log("ATENÇÃO: usando senha padrão. Defina ADMIN_PASS nas variáveis de ambiente.");
+});

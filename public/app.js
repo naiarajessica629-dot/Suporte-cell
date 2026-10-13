@@ -54,7 +54,10 @@
       fetch("/api/sessions", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ label: $("label").value, minutes: parseInt($("exp").value, 10) }),
-      }).then(function (r) { return r.json(); }).then(function (d) {
+      }).then(function (r) {
+        if (r.status === 401) { location.href = "/login"; throw new Error("auth"); }
+        return r.json();
+      }).then(function (d) {
         $("gen").disabled = false;
         $("link").textContent = d.url;
         $("invite").hidden = false;
@@ -157,6 +160,13 @@
       if (navigator.clipboard) navigator.clipboard.writeText(txt).then(ok).catch(sel); else sel();
       function sel() { var r = document.createRange(); r.selectNodeContents($("link")); var s = getSelection(); s.removeAllRanges(); s.addRange(r); ok(); }
     });
+
+    $("logout").addEventListener("click", function () {
+      fetch("/api/logout", { method: "POST" }).then(function () { location.href = "/login"; });
+    });
+    fetch("/api/me").then(function (r) { return r.json(); }).then(function (d) {
+      if (d && d.defaultPass) $("passwarn").hidden = false;
+    }).catch(function () {});
 
     setPill("pending");
   }

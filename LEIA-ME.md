@@ -59,6 +59,19 @@ node server.js
 
 Coloque um Nginx na frente com HTTPS (Let's Encrypt). **HTTPS é obrigatório** para o compartilhamento de tela funcionar fora de `localhost`.
 
+## Login do atendente
+
+O painel (`/`) agora pede usuário e senha. O link do cliente (`/s/CODIGO`) continua aberto, sem login.
+
+Defina as credenciais nas variáveis de ambiente do Render (Settings → Environment):
+
+```
+ADMIN_USER=seu_usuario
+ADMIN_PASS=sua_senha_forte
+```
+
+Enquanto não definir, vale o padrão `admin` / `suporte123` — troque assim que publicar. A sessão dura 12 horas.
+
 ## Rede corporativa (TURN)
 
 Em ~10–20% das redes (NAT restrito), o vídeo não conecta só com STUN. Configure um servidor TURN e informe as variáveis de ambiente — o site as entrega ao navegador automaticamente:
