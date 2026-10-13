@@ -1,0 +1,13 @@
+{
+  "name": "suporte-remoto",
+  "version": "1.0.0",
+  "description": "Site de suporte remoto com espelhamento de tela via WebRTC (zero dependências)",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

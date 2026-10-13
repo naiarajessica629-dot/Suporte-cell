@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Painel do Atendente — Suporte Remoto</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;650;700&display=swap">
+<link rel="stylesheet" href="/estilo.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></span>
+  <div class="brand"><b>Suporte Remoto</b><span>Painel do atendente</span></div>
+</div>
+
+<div class="wrap">
+<div class="grid">
+  <div>
+    <div class="stage" id="stage">
+      <div class="empty" id="empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
+        <h3>Nenhuma sessão ativa</h3>
+        <p class="note">Gere um convite ao lado e envie ao cliente. Quando ele autorizar o compartilhamento, a tela aparece aqui ao vivo.</p>
+      </div>
+      <video id="remote" playsinline autoplay hidden></video>
+      <div class="bar" id="bar" hidden>
+        <span class="live"><i></i>AO VIVO</span>
+        <span class="sp"></span>
+        <button id="fs">Tela cheia</button>
+        <button id="end" class="danger">Encerrar</button>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="k">Latência</div><div class="v" id="lat">—</div></div>
+      <div class="stat"><div class="k">FPS</div><div class="v" id="fps">—</div></div>
+      <div class="stat"><div class="k">Bitrate</div><div class="v" id="bit">—</div></div>
+      <div class="stat"><div class="k">Conexão</div><div class="v" id="conn" style="font-size:16px;padding-top:3px">—</div></div>
+    </div>
+
+    <div class="card" style="margin-top:18px">
+      <h2>Registro da sessão</h2>
+      <div class="body"><div class="log" id="log"></div></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <h2 style="display:flex;align-items:center">Sessão <span class="pill pending" id="pill"><i></i>Em espera</span></h2>
+      <div class="body">
+        <div class="field">
+          <label for="label">Cliente / dispositivo</label>
+          <input id="label" type="text" placeholder="Ex.: Loja 42 — João" value="Loja 42 — João">
+        </div>
+        <div class="field">
+          <label for="exp">Validade do link</label>
+          <select id="exp"><option value="5">5 minutos</option><option value="15" selected>15 minutos</option><option value="30">30 minutos</option></select>
+        </div>
+        <button class="btn" id="gen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>Gerar convite</button>
+
+        <div class="invite" id="invite" hidden>
+          <div class="lab">Link de acesso</div>
+          <div class="linkrow">
+            <code id="link">—</code>
+            <button id="copy" title="Copiar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+          </div>
+          <div class="share">
+            <a id="wa" href="#" target="_blank" rel="noopener">WhatsApp</a>
+            <a id="sms" href="#" target="_blank" rel="noopener">SMS</a>
+            <a id="mail" href="#" target="_blank" rel="noopener">E-mail</a>
+          </div>
+          <div class="count" id="count"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script src="/app.js?role=viewer"></script>
+</body>
+</html>

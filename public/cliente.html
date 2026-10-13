@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Compartilhar minha tela — Suporte</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;650;700&display=swap">
+<link rel="stylesheet" href="/estilo.css">
+</head>
+<body>
+<div class="topbar">
+  <span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></span>
+  <div class="brand"><b>Suporte Remoto</b><span>Compartilhamento de tela</span></div>
+</div>
+
+<div class="wrap" style="max-width:560px">
+  <div class="card">
+    <div class="body" style="text-align:center">
+      <h1 style="font-size:22px;margin-bottom:8px">Compartilhar sua tela com o suporte</h1>
+      <p class="note" id="intro">Ao tocar no botão, seu navegador vai pedir permissão para compartilhar a tela. O atendente poderá apenas <b>ver</b> — ele não controla seu aparelho. Você pode parar quando quiser.</p>
+
+      <div class="warnbox" id="mobileWarn" hidden>
+        O compartilhamento de tela do navegador não é suportado em celulares Android/iOS. Abra este link em um <b>computador</b> (Chrome, Edge ou Firefox), ou peça ao suporte o aplicativo para celular.
+      </div>
+
+      <div id="preShare">
+        <button class="btn big" id="share" style="margin-top:18px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          Iniciar compartilhamento
+        </button>
+        <p class="note" id="status" style="margin-top:14px"></p>
+      </div>
+
+      <div id="sharing" hidden>
+        <div class="stats" style="margin-top:0">
+          <div class="stat"><div class="k">Estado</div><div class="v" id="cState" style="font-size:16px;padding-top:3px;color:var(--good)">Conectando</div></div>
+          <div class="stat"><div class="k">Tempo</div><div class="v" id="cTime">0:00</div></div>
+        </div>
+        <p class="note" style="margin-top:16px">Sua tela está sendo compartilhada com o atendente. A barra de gravação do seu sistema fica visível enquanto isso dura.</p>
+        <button class="btn danger" id="stop" style="margin-top:16px;background:var(--crit)">Parar compartilhamento</button>
+      </div>
+    </div>
+  </div>
+  <p class="note" style="text-align:center;margin-top:16px;opacity:.7">Sessão: <span id="code"></span></p>
+</div>
+
+<script src="/app.js?role=publisher"></script>
+</body>
+</html>
