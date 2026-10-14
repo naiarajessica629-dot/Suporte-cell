@@ -23,7 +23,7 @@ jobs:
       - name: Configurar Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version: '3.24.5'
           cache: true
 
       - name: Gerar projeto Android e compilar APK
@@ -63,7 +63,7 @@ jobs:
           echo "::endgroup::"
           # Publica as últimas linhas como anotações (legíveis pela API)
           if [ -f build.log ]; then
-            grep -nE "requires a higher|Android SDK version|minSdkVersion [0-9]|BUILD FAILED|FAILURE:|what went wrong|Could not|not found|Unsupported class|incompatible|error:" build.log | tail -n 20 | while IFS= read -r line; do
+            grep -nE "requires a higher|Android SDK version|BUILD FAILED|FAILURE:|What went wrong|Caused by|A problem occurred|Execution failed|Could not|not found|Unsupported|incompatible|error:|> " build.log | tail -n 25 | while IFS= read -r line; do
               echo "::error::${line}"
             done
           fi
