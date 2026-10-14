@@ -6,7 +6,6 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:http/http.dart' as http;
 import 'package:permission_handler/permission_handler.dart';
-import 'package:app_links/app_links.dart';
 
 // Servidor publicado no Render.
 const String kHost = 'suporte-cell.onrender.com';
@@ -43,7 +42,6 @@ class SharePage extends StatefulWidget {
 
 class _SharePageState extends State<SharePage> {
   final _codeCtrl = TextEditingController();
-  final _appLinks = AppLinks();
 
   RTCPeerConnection? _pc;
   WebSocketChannel? _ws;
@@ -51,29 +49,6 @@ class _SharePageState extends State<SharePage> {
   bool _sharing = false;
   bool _connecting = false;
   String _status = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _initDeepLinks();
-  }
-
-  Future<void> _initDeepLinks() async {
-    try {
-      final uri = await _appLinks.getInitialLink();
-      if (uri != null) _fillFromUri(uri);
-      _appLinks.uriLinkStream.listen((u) => _fillFromUri(u));
-    } catch (_) {}
-  }
-
-  void _fillFromUri(Uri uri) {
-    // espera .../s/CODIGO
-    final seg = uri.pathSegments;
-    final i = seg.indexOf('s');
-    if (i >= 0 && i + 1 < seg.length) {
-      setState(() => _codeCtrl.text = seg[i + 1].toUpperCase());
-    }
-  }
 
   String get _code => _codeCtrl.text.trim().toUpperCase();
 
