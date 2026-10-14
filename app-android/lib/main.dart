@@ -1,15 +1,17 @@
-// Cliente de suporte remoto (Android) — consentimento por código.
-// A pessoa gera um código no próprio celular e o dita ao atendente.
-// O atendente só vê a tela depois de entrar com esse código, e a pessoa
-// ainda precisa tocar em "Compartilhar" e aceitar o aviso do sistema.
+// Cliente de suporte remoto (Android) — aberto pelo LINK do atendente.
+// A pessoa toca no link que o atendente enviou; o app abre já pronto e ela
+// só confirma o compartilhamento (um toque). Sem código para digitar.
+// Somente visualização — ninguém controla o aparelho.
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:http/http.dart' as http;
 import 'package:permission_handler/permission_handler.dart';
 
 const String kHost = 'suporte-cell.onrender.com';
+const MethodChannel _deeplink = MethodChannel('suporte/deeplink');
 
 void main() => runApp(const SuporteApp());
 
@@ -32,7 +34,7 @@ class SuporteApp extends StatelessWidget {
   }
 }
 
-enum Step { idle, waiting, ready, sharing }
+enum Step { needLink, ready, sharing }
 
 class SharePage extends StatefulWidget {
   const SharePage({super.key});
@@ -41,51 +43,56 @@ class SharePage extends StatefulWidget {
 }
 
 class _SharePageState extends State<SharePage> {
+  final _codeCtrl = TextEditingController();
   RTCPeerConnection? _pc;
   WebSocketChannel? _ws;
   MediaStream? _stream;
 
-  Step _step = Step.idle;
+  Step _step = Step.needLink;
   String _code = '';
   String _status = '';
   bool _busy = false;
 
-  String get _host => kHost;
-
-  // 1) A pessoa toca em "Permitir suporte": gera o código e aguarda o atendente.
-  Future<void> _permit() async {
-    setState(() {
-      _busy = true;
-      _status = 'Gerando código…';
+  @override
+  void initState() {
+    super.initState();
+    _deeplink.setMethodCallHandler((call) async {
+      if (call.method == 'link') _useLink(call.arguments as String?);
     });
-    String code;
-    try {
-      final r = await http.post(Uri.parse('https://$_host/api/pair'),
-          headers: {'Content-Type': 'application/json'}, body: '{}');
-      code = (jsonDecode(r.body) as Map<String, dynamic>)['code'] as String;
-    } catch (_) {
-      setState(() {
-        _busy = false;
-        _status = 'Sem conexão com o servidor. Verifique a internet e tente de novo.';
-      });
-      return;
-    }
-
-    _ws = WebSocketChannel.connect(Uri.parse('wss://$_host/signal'));
-    _ws!.stream.listen(_onSignal, onError: (_) => _reset('Conexão perdida.'),
-        onDone: () { if (_step != Step.idle) _reset('Conexão encerrada.'); });
-    _send({'t': 'join', 'code': code, 'role': 'publisher'});
-
-    setState(() {
-      _busy = false;
-      _code = code;
-      _step = Step.waiting;
-      _status = 'Passe este código ao atendente e aguarde.';
-    });
+    _loadInitialLink();
   }
 
-  // 2) O atendente entrou (viewer-ready). A pessoa decide compartilhar.
+  Future<void> _loadInitialLink() async {
+    try {
+      final uri = await _deeplink.invokeMethod<String>('getInitialLink');
+      _useLink(uri);
+    } catch (_) {}
+  }
+
+  void _useLink(String? url) {
+    if (url == null) return;
+    final code = _codeFromUrl(url);
+    if (code != null && mounted) {
+      setState(() {
+        _code = code;
+        _step = Step.ready;
+        _status = '';
+      });
+    }
+  }
+
+  String? _codeFromUrl(String url) {
+    try {
+      final seg = Uri.parse(url).pathSegments;
+      final i = seg.indexOf('s');
+      if (i >= 0 && i + 1 < seg.length) return seg[i + 1];
+    } catch (_) {}
+    return null;
+  }
+
+  // A pessoa confirma o compartilhamento.
   Future<void> _share() async {
+    if (_code.isEmpty) return;
     setState(() {
       _busy = true;
       _status = 'Na próxima tela, toque em "Iniciar transmissão".';
@@ -100,7 +107,6 @@ class _SharePageState extends State<SharePage> {
     } catch (_) {
       setState(() {
         _busy = false;
-        _step = Step.ready;
         _status = 'Você cancelou. Toque de novo para compartilhar.';
       });
       return;
@@ -117,27 +123,23 @@ class _SharePageState extends State<SharePage> {
       if (s == RTCPeerConnectionState.RTCPeerConnectionStateFailed) _pc?.restartIce();
     };
 
-    final offer = await _pc!.createOffer();
-    await _pc!.setLocalDescription(offer);
-    _send({'t': 'offer', 'sdp': offer.sdp});
+    _ws = WebSocketChannel.connect(Uri.parse('wss://$kHost/signal'));
+    _ws!.stream.listen(_onSignal, onError: (_) => _stop(), onDone: () { if (_step == Step.sharing) _stop(); });
+    _send({'t': 'join', 'code': _code, 'role': 'publisher'});
 
     setState(() {
       _busy = false;
       _step = Step.sharing;
-      _status = 'Sua tela está sendo compartilhada.';
+      _status = 'Aguardando o atendente ver sua tela…';
     });
   }
 
   Future<Map<String, dynamic>> _fetchIce() async {
     try {
-      final r = await http.get(Uri.parse('https://$_host/api/ice'));
+      final r = await http.get(Uri.parse('https://$kHost/api/ice'));
       if (r.statusCode == 200) return jsonDecode(r.body) as Map<String, dynamic>;
     } catch (_) {}
-    return {
-      'iceServers': [
-        {'urls': 'stun:stun.l.google.com:19302'}
-      ]
-    };
+    return {'iceServers': [{'urls': 'stun:stun.l.google.com:19302'}]};
   }
 
   void _send(Map<String, dynamic> m) => _ws?.sink.add(jsonEncode(m));
@@ -146,15 +148,14 @@ class _SharePageState extends State<SharePage> {
     final m = jsonDecode(raw as String) as Map<String, dynamic>;
     switch (m['t']) {
       case 'error':
-        _reset(m['reason']?.toString() ?? 'Erro.');
+        _showMsg(m['reason']?.toString() ?? 'Erro.');
+        await _stop();
         break;
-      case 'viewer-ready': // atendente entrou com o código
-        if (_step == Step.waiting) {
-          setState(() {
-            _step = Step.ready;
-            _status = 'Atendente conectado. Toque para compartilhar sua tela.';
-          });
-        }
+      case 'viewer-ready': // atendente presente: enviar a tela
+        final offer = await _pc!.createOffer();
+        await _pc!.setLocalDescription(offer);
+        _send({'t': 'offer', 'sdp': offer.sdp});
+        setState(() => _status = 'Sua tela está sendo compartilhada.');
         break;
       case 'answer':
         await _pc?.setRemoteDescription(RTCSessionDescription(m['sdp'] as String, 'answer'));
@@ -178,30 +179,20 @@ class _SharePageState extends State<SharePage> {
     _stream = null; _pc = null; _ws = null;
     if (mounted) {
       setState(() {
-        _step = Step.idle;
-        _code = '';
+        _step = _code.isNotEmpty ? Step.ready : Step.needLink;
         _status = 'Compartilhamento encerrado.';
       });
     }
   }
 
-  void _reset(String msg) {
-    _stream?.dispose();
-    _pc?.close();
-    _stream = null; _pc = null; _ws = null;
-    if (mounted) {
-      setState(() {
-        _step = Step.idle;
-        _code = '';
-        _busy = false;
-        _status = msg;
-      });
-    }
+  void _showMsg(String s) {
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s)));
   }
 
   @override
   void dispose() {
     _stop();
+    _codeCtrl.dispose();
     super.dispose();
   }
 
@@ -229,72 +220,44 @@ class _SharePageState extends State<SharePage> {
                   const Text('Suporte Remoto',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 6),
-                  const Text('Compartilhe sua tela com o atendente',
-                      textAlign: TextAlign.center, style: TextStyle(color: soft)),
                   const SizedBox(height: 28),
 
-                  if (_step == Step.idle) ...[
-                    FilledButton.icon(
-                      onPressed: _busy ? null : _permit,
-                      style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
-                      icon: const Icon(Icons.verified_user),
-                      label: Text(_busy ? 'Aguarde…' : 'Permitir suporte'),
-                    ),
-                    const SizedBox(height: 14),
+                  if (_step == Step.needLink) ...[
                     const Text(
-                      'Ao tocar, aparece um código. Diga esse código ao atendente. Só ele poderá ver sua tela — e somente depois que você tocar em compartilhar. Ninguém controla seu aparelho.',
-                      textAlign: TextAlign.center, style: TextStyle(color: soft, fontSize: 12.5)),
-                  ] else if (_step == Step.waiting) ...[
-                    const Text('Seu código', textAlign: TextAlign.center,
-                        style: TextStyle(color: soft, fontSize: 13)),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF141A22),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: accent, width: 2),
+                      'Toque no link que o atendente enviou para começar. Se o app não abriu pelo link, cole o código abaixo.',
+                      textAlign: TextAlign.center, style: TextStyle(color: soft, fontSize: 13)),
+                    const SizedBox(height: 18),
+                    TextField(
+                      controller: _codeCtrl,
+                      textCapitalization: TextCapitalization.characters,
+                      decoration: const InputDecoration(
+                        labelText: 'Código (se o link não abriu o app)',
+                        border: OutlineInputBorder(),
                       ),
-                      child: Text(
-                        _code.replaceAllMapped(RegExp(r'.{3}'), (m) => '${m[0]} ').trim(),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w700, letterSpacing: 6),
-                      ),
+                      onChanged: (v) => setState(() {}),
                     ),
-                    const SizedBox(height: 16),
-                    const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
-                      SizedBox(width: 10),
-                      Text('Aguardando o atendente entrar…'),
-                    ]),
-                    const SizedBox(height: 16),
-                    TextButton(onPressed: _stop, child: const Text('Cancelar')),
+                    const SizedBox(height: 12),
+                    FilledButton(
+                      onPressed: _codeCtrl.text.trim().isEmpty
+                          ? null
+                          : () => setState(() { _code = _codeCtrl.text.trim(); _step = Step.ready; }),
+                      style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+                      child: const Text('Continuar'),
+                    ),
                   ] else if (_step == Step.ready) ...[
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF10261B), borderRadius: BorderRadius.circular(10)),
-                      child: const Row(children: [
-                        Icon(Icons.check_circle, color: Color(0xFF35C07E), size: 18),
-                        SizedBox(width: 8),
-                        Expanded(child: Text('Atendente conectado')),
-                      ]),
-                    ),
-                    const SizedBox(height: 16),
+                    const Text('O atendente vai ver sua tela para te ajudar. Ninguém controla seu aparelho, e você pode parar quando quiser.',
+                        textAlign: TextAlign.center, style: TextStyle(color: soft, fontSize: 13)),
+                    const SizedBox(height: 18),
                     FilledButton.icon(
                       onPressed: _busy ? null : _share,
-                      style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+                      style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 18)),
                       icon: const Icon(Icons.play_arrow),
-                      label: const Text('Compartilhar minha tela'),
+                      label: Text(_busy ? 'Aguarde…' : 'Compartilhar minha tela'),
                     ),
-                    const SizedBox(height: 10),
-                    TextButton(onPressed: _stop, child: const Text('Cancelar')),
                   ] else ...[
                     Container(
                       padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF10261B), borderRadius: BorderRadius.circular(10)),
+                      decoration: BoxDecoration(color: const Color(0xFF10261B), borderRadius: BorderRadius.circular(10)),
                       child: const Row(children: [
                         Icon(Icons.fiber_manual_record, color: Color(0xFF35C07E), size: 14),
                         SizedBox(width: 8),

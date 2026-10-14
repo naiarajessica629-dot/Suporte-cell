@@ -45,14 +45,19 @@ jobs:
             cp /tmp/pubspec.yaml pubspec.yaml
             cp /tmp/main.dart lib/main.dart
             cp android_manifest.xml android/app/src/main/AndroidManifest.xml
+            # MainActivity com deep link (abre o app pelo link do atendente)
+            mkdir -p android/app/src/main/kotlin/com/superfrio/suporte_cell
+            cp MainActivity.kt android/app/src/main/kotlin/com/superfrio/suporte_cell/MainActivity.kt
+            # Assinatura fixa (resolve "app não instalado" ao atualizar por cima)
+            cp suporte.jks android/app/suporte.jks
             # minSdk 24 (plugins) e targetSdk 33 (sideload). Substitui o token direto — Kotlin DSL e Groovy.
             for f in android/app/build.gradle.kts android/app/build.gradle; do
               [ -f "$f" ] || continue
               sed -i 's/flutter\.minSdkVersion/24/g' "$f"
               sed -i 's/flutter\.targetSdkVersion/33/g' "$f"
             done
-            echo "===== build.gradle(.kts) defaultConfig ====="
-            grep -nE 'minSdk|targetSdk|compileSdk' android/app/build.gradle.kts android/app/build.gradle 2>/dev/null || true
+            # Aplica a assinatura fixa no build de release (Groovy ou Kotlin DSL)
+            python3 sign_patch.py
             flutter pub get
             flutter build apk --release
           } 2>&1 | tee build.log

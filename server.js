@@ -182,6 +182,22 @@ const server = http.createServer((req, res) => {
   }
   if (p === "/api/ice") return json(res, 200, { iceServers: iceServers() });
 
+  // Verificação de App Links (faz o link https abrir o app direto, sem seletor).
+  if (p === "/.well-known/assetlinks.json") {
+    return json(res, 200, [
+      {
+        relation: ["delegate_permission/common.handle_all_urls"],
+        target: {
+          namespace: "android_app",
+          package_name: "com.superfrio.suporte_cell",
+          sha256_cert_fingerprints: [
+            "22:76:37:86:7A:C2:24:45:84:EC:0A:FE:67:9D:C3:EC:0B:6B:7F:06:0E:1E:FA:10:6E:C9:0A:DB:6C:75:47:A8",
+          ],
+        },
+      },
+    ]);
+  }
+
   // --- Páginas ---
   if (p === "/login") return sendFile(res, path.join(PUBLIC, "login.html"));
   if (p.startsWith("/s/")) return sendFile(res, path.join(PUBLIC, "cliente.html")); // cliente: sem login
