@@ -7,6 +7,9 @@ on:
       - '.github/workflows/build-apk.yml'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -74,3 +77,14 @@ jobs:
           name: suporte-cell-apk
           path: app-android/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
+
+      - name: Publicar APK em release (link de download direto)
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app-android/build/app/outputs/flutter-apk/app-release.apk suporte-cell.apk
+          gh release create apk-latest --title "Suporte Cell — APK" \
+            --notes "APK do app cliente (Android). Baixe suporte-cell.apk e instale no celular." \
+            || echo "release já existe"
+          gh release upload apk-latest suporte-cell.apk --clobber
