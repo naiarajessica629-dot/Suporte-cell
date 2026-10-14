@@ -1,0 +1,59 @@
+name: Build APK Android
+
+on:
+  push:
+    paths:
+      - 'app-android/**'
+      - '.github/workflows/build-apk.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Configurar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Gerar projeto Android e compilar APK
+        working-directory: app-android
+        run: |
+          set -e
+          # Guarda nossos fontes
+          cp pubspec.yaml /tmp/pubspec.yaml
+          cp lib/main.dart /tmp/main.dart
+          # Gera a estrutura Android (gradle, MainActivity, recursos)
+          flutter create --platforms=android --org com.superfrio --project-name suporte_cell .
+          # Restaura nossos fontes e aplica o manifesto com permissões
+          cp /tmp/pubspec.yaml pubspec.yaml
+          cp /tmp/main.dart lib/main.dart
+          cp android_manifest.xml android/app/src/main/AndroidManifest.xml
+          # minSdk 23 (flutter_webrtc) e targetSdk 33 (sideload sem Play)
+          if [ -f android/app/build.gradle.kts ]; then
+            sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 23/' android/app/build.gradle.kts
+            sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 33/' android/app/build.gradle.kts
+          fi
+          if [ -f android/app/build.gradle ]; then
+            sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 23/' android/app/build.gradle
+            sed -i 's/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 33/' android/app/build.gradle
+          fi
+          flutter pub get
+          flutter build apk --release
+
+      - name: Publicar APK como artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: suporte-cell-apk
+          path: app-android/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
