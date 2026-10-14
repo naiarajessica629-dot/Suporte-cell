@@ -105,14 +105,6 @@ class _SharePageState extends State<SharePage> {
     for (final track in _stream!.getTracks()) {
       await _pc!.addTrack(track, _stream!);
     }
-    // Prioriza nitidez e limita o bitrate para 4G.
-    try {
-      final sender = (await _pc!.getSenders()).first;
-      final params = sender.parameters;
-      params.degradationPreference = RTCDegradationPreference.MAINTAIN_RESOLUTION;
-      params.encodings = [RTCRtpEncoding(maxBitrate: 1500000, maxFramerate: 15)];
-      await sender.setParameters(params);
-    } catch (_) {}
 
     _pc!.onIceCandidate = (c) => _send({'t': 'ice', 'candidate': c.toMap()});
     _pc!.onConnectionState = (s) {
