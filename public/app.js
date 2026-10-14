@@ -176,7 +176,12 @@
     $("code").textContent = code;
     var canShare = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
     var isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    if (isMobile || !canShare) { $("mobileWarn").hidden = false; $("share").disabled = true; }
+    if (isMobile || !canShare) {
+      $("mobileWarn").hidden = false;
+      $("share").disabled = true;
+      var cs = document.getElementById("codeShow");
+      if (cs) cs.textContent = code;
+    }
 
     function setStatus(t) { $("status").textContent = t; }
 

@@ -59,6 +59,21 @@ node server.js
 
 Coloque um Nginx na frente com HTTPS (Let's Encrypt). **HTTPS é obrigatório** para o compartilhamento de tela funcionar fora de `localhost`.
 
+## App Android (espelhar tela de celular)
+
+O navegador do celular não compartilha a própria tela — por isso o cliente de celular é um app nativo, na pasta `app-android/`. Ele captura a tela (MediaProjection) e transmite para o painel pelo mesmo servidor.
+
+- O APK é compilado automaticamente pelo GitHub Actions (`.github/workflows/build-apk.yml`) a cada mudança na pasta `app-android/`.
+- Link de download direto (público): **https://github.com/naiarajessica629-dot/Suporte-cell/releases/download/apk-latest/suporte-cell.apk**
+
+Como o cliente usa:
+
+1. Baixa e instala o APK (o Android pede para permitir instalar de fontes desconhecidas).
+2. Abre o app, digita o **código** do atendimento (o mesmo do link `/s/CODIGO`) e toca em Iniciar.
+3. Aceita o pop-up do sistema “Iniciar transmissão”. A tela aparece no painel do atendente.
+
+iOS: não incluído (navegador não captura tela; exige app próprio com conta paga da Apple).
+
 ## Login do atendente
 
 O painel (`/`) agora pede usuário e senha. O link do cliente (`/s/CODIGO`) continua aberto, sem login.
