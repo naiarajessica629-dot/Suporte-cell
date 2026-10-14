@@ -96,6 +96,14 @@ function makeCode() {
   for (let i = 0; i < 8; i++) s += ALPHA[b[i] % ALPHA.length];
   return s.slice(0, 4) + "-" + s.slice(4, 8);
 }
+// Código numérico de 6 dígitos para pareamento iniciado pelo celular (consentimento).
+function makeNumCode() {
+  let c;
+  do {
+    c = String(crypto.randomInt(0, 1000000)).padStart(6, "0");
+  } while (sessions.has(c));
+  return c;
+}
 setInterval(() => {
   const now = Date.now();
   for (const [c, s] of sessions) if (s.expiresAt < now && s.status !== "connected") sessions.delete(c);
@@ -140,6 +148,22 @@ const server = http.createServer((req, res) => {
     return json(res, 200, { ok: true }, { "Set-Cookie": "adm=; HttpOnly; Path=/; Max-Age=0" });
   }
   if (p === "/api/me") return json(res, 200, { authed: isAuthed(req), defaultPass: USING_DEFAULT_PASS });
+
+  // Pareamento iniciado pelo celular: a pessoa gera um código e o dita ao atendente.
+  // Sem login (quem cria é o cliente); o atendente precisa estar logado para entrar.
+  if (p === "/api/pair" && req.method === "POST") {
+    return readBody(req, (d) => {
+      const code = makeNumCode();
+      sessions.set(code, {
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 10 * 60000, // 10 min para o atendente entrar
+        label: String(d.label || "cliente (celular)").slice(0, 80),
+        status: "pending",
+        pair: true,
+      });
+      json(res, 200, { code, expiresInMin: 10 });
+    });
+  }
 
   // --- API de suporte (criar convite exige login) ---
   if (p === "/api/sessions" && req.method === "POST") {

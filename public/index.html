@@ -63,7 +63,18 @@
           <label for="exp">Validade do link</label>
           <select id="exp"><option value="5">5 minutos</option><option value="15" selected>15 minutos</option><option value="30">30 minutos</option></select>
         </div>
-        <button class="btn" id="gen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>Gerar convite</button>
+        <div class="field" style="margin-top:4px">
+          <label for="pairCode">Atender por código do cliente (celular)</label>
+          <input id="pairCode" inputmode="numeric" maxlength="7" placeholder="Ex.: 123 456" style="font-family:var(--mono);font-size:18px;letter-spacing:3px;text-align:center">
+          <div class="hint">Peça à pessoa o código de 6 dígitos que apareceu no celular dela e digite aqui.</div>
+        </div>
+        <button class="btn" id="pairBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Conectar ao cliente</button>
+
+        <div style="margin:18px 0;border-top:1px solid var(--line);position:relative">
+          <span style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--surface);padding:0 10px;font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em">ou</span>
+        </div>
+
+        <button class="btn ghost" id="gen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>Gerar convite por link (computador)</button>
 
         <div class="invite" id="invite" hidden>
           <div class="lab">Link de acesso</div>

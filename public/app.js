@@ -161,6 +161,16 @@
       function sel() { var r = document.createRange(); r.selectNodeContents($("link")); var s = getSelection(); s.removeAllRanges(); s.addRange(r); ok(); }
     });
 
+    var pb = $("pairBtn");
+    if (pb) pb.addEventListener("click", function () {
+      var code = ($("pairCode").value || "").replace(/\D/g, "");
+      if (code.length !== 6) { log("Código inválido — são 6 dígitos."); return; }
+      $("inviteBox").hidden = true;
+      setPill("pending");
+      log("Conectando ao cliente — código " + code);
+      connectRoom(code);
+    });
+
     $("logout").addEventListener("click", function () {
       fetch("/api/logout", { method: "POST" }).then(function () { location.href = "/login"; });
     });

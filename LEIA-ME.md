@@ -66,11 +66,15 @@ O navegador do celular não compartilha a própria tela — por isso o cliente d
 - O APK é compilado automaticamente pelo GitHub Actions (`.github/workflows/build-apk.yml`) a cada mudança na pasta `app-android/`.
 - Link de download direto (público): **https://github.com/naiarajessica629-dot/Suporte-cell/releases/download/apk-latest/suporte-cell.apk**
 
-Como o cliente usa:
+Como o cliente usa (fluxo de consentimento, estilo Family Link):
 
 1. Baixa e instala o APK (o Android pede para permitir instalar de fontes desconhecidas).
-2. Abre o app, digita o **código** do atendimento (o mesmo do link `/s/CODIGO`) e toca em Iniciar.
-3. Aceita o pop-up do sistema “Iniciar transmissão”. A tela aparece no painel do atendente.
+2. Abre o app e toca em **Permitir suporte** — aparece um **código de 6 dígitos** na tela.
+3. A pessoa **dita o código ao atendente**. Só com esse código o atendente entra (no painel, em "Atender por código do cliente").
+4. Quando o atendente entra, o app mostra "Atendente conectado"; a pessoa toca em **Compartilhar minha tela** e aceita o "Iniciar transmissão" do sistema.
+5. A tela aparece no painel. A qualquer momento a pessoa toca em **Parar**. Ninguém controla o aparelho — apenas visualização.
+
+Isso garante que só quem está com o celular, e consente naquele momento, libera o acesso — proteção contra fraude.
 
 iOS: não incluído (navegador não captura tela; exige app próprio com conta paga da Apple).
 
