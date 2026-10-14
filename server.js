@@ -53,14 +53,36 @@ setInterval(() => {
 }, 300000);
 
 // ---------- STUN/TURN entregues ao navegador ----------
+// Gera credenciais temporárias (TURN REST API / coturn use-auth-secret).
+function turnCreds(secret, host) {
+  const expiry = Math.floor(Date.now() / 1000) + 3600; // 1h
+  const username = expiry + ":suporte";
+  const credential = crypto.createHmac("sha1", secret).update(username).digest("base64");
+  return {
+    urls: [
+      "turn:" + host + ":80",
+      "turn:" + host + ":80?transport=tcp",
+      "turn:" + host + ":443",
+      "turns:" + host + ":443?transport=tcp",
+    ],
+    username,
+    credential,
+  };
+}
+
 function iceServers() {
   const list = [{ urls: "stun:stun.l.google.com:19302" }];
+
+  // TURN próprio (se configurado nas variáveis de ambiente) tem prioridade.
   if (process.env.TURN_URL) {
     list.push({
       urls: process.env.TURN_URL.split(","),
       username: process.env.TURN_USER || "",
       credential: process.env.TURN_PASS || "",
     });
+  } else {
+    // Fallback grátis: Open Relay (Metered), via static-auth secret público.
+    list.push(turnCreds("openrelayprojectsecret", "staticauth.openrelay.metered.ca"));
   }
   return list;
 }
