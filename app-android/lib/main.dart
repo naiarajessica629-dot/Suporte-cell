@@ -12,6 +12,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 const String kHost = 'suporte-cell.onrender.com';
 const MethodChannel _deeplink = MethodChannel('suporte/deeplink');
+const MethodChannel _overlay = MethodChannel('suporte/overlay');
 
 void main() => runApp(const SuporteApp());
 
@@ -52,6 +53,7 @@ class _SharePageState extends State<SharePage> {
   String _code = '';
   String _status = '';
   bool _busy = false;
+  bool _overlayOk = true; // controla só a exibição do aviso "permitir guia visual"
 
   @override
   void initState() {
@@ -127,6 +129,12 @@ class _SharePageState extends State<SharePage> {
     _ws!.stream.listen(_onSignal, onError: (_) => _stop(), onDone: () { if (_step == Step.sharing) _stop(); });
     _send({'t': 'join', 'code': _code, 'role': 'publisher'});
 
+    try {
+      _overlayOk = (await _overlay.invokeMethod<bool>('hasPermission')) ?? false;
+    } catch (_) {
+      _overlayOk = false;
+    }
+
     setState(() {
       _busy = false;
       _step = Step.sharing;
@@ -165,6 +173,14 @@ class _SharePageState extends State<SharePage> {
         await _pc?.addCandidate(RTCIceCandidate(
             c['candidate'] as String?, c['sdpMid'] as String?, (c['sdpMLineIndex'] as num?)?.toInt()));
         break;
+      case 'point': // atendente apontou na tela (guia visual)
+        try {
+          await _overlay.invokeMethod('show', {'x': m['x'], 'y': m['y']});
+        } catch (_) {}
+        break;
+      case 'clear':
+        try { await _overlay.invokeMethod('hide'); } catch (_) {}
+        break;
       case 'bye':
         _stop();
         break;
@@ -173,6 +189,7 @@ class _SharePageState extends State<SharePage> {
 
   Future<void> _stop() async {
     try { _send({'t': 'bye'}); } catch (_) {}
+    try { await _overlay.invokeMethod('hide'); } catch (_) {}
     await _stream?.dispose();
     await _pc?.close();
     await _ws?.sink.close();
@@ -264,6 +281,18 @@ class _SharePageState extends State<SharePage> {
                         Expanded(child: Text('Compartilhando sua tela')),
                       ]),
                     ),
+                    if (!_overlayOk) ...[
+                      const SizedBox(height: 12),
+                      TextButton.icon(
+                        onPressed: () async {
+                          try { await _overlay.invokeMethod('requestPermission'); } catch (_) {}
+                        },
+                        icon: const Icon(Icons.touch_app),
+                        label: const Text('Permitir o atendente apontar na tela'),
+                      ),
+                      const Text('Opcional: deixa o atendente mostrar onde tocar.',
+                          textAlign: TextAlign.center, style: TextStyle(color: soft, fontSize: 11.5)),
+                    ],
                     const SizedBox(height: 16),
                     FilledButton(
                       onPressed: _stop,

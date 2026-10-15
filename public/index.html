@@ -30,9 +30,12 @@
         <p class="note">Gere um convite ao lado e envie ao cliente. Quando ele autorizar o compartilhamento, a tela aparece aqui ao vivo.</p>
       </div>
       <video id="remote" playsinline autoplay hidden></video>
+      <div id="marker" hidden style="position:absolute;width:40px;height:40px;border:3px solid #4b93ff;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;box-shadow:0 0 0 2px rgba(255,255,255,.7),0 0 14px rgba(75,147,255,.9);z-index:5"></div>
       <div class="bar" id="bar" hidden>
         <span class="live"><i></i>AO VIVO</span>
         <span class="sp"></span>
+        <button id="pointBtn">Apontar</button>
+        <button id="clearBtn" hidden>Limpar</button>
         <button id="fs">Tela cheia</button>
         <button id="end" class="danger">Encerrar</button>
       </div>

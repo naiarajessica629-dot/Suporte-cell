@@ -154,6 +154,43 @@
       if (document.fullscreenElement) document.exitFullscreen();
       else if (el.requestFullscreen) el.requestFullscreen().catch(function () {});
     });
+
+    // ---- Guia visual: apontar sobre a tela do cliente ----
+    var pointing = false, lastSent = 0;
+    var video = $("remote"), stage = $("stage"), marker = $("marker");
+    function setPointing(on) {
+      pointing = on;
+      $("pointBtn").style.background = on ? "rgba(75,147,255,.9)" : "";
+      $("pointBtn").style.borderColor = on ? "transparent" : "";
+      $("clearBtn").hidden = !on;
+      stage.style.cursor = on ? "crosshair" : "";
+      if (!on) { marker.hidden = true; sig({ t: "clear" }); }
+    }
+    $("pointBtn").addEventListener("click", function () { setPointing(!pointing); });
+    $("clearBtn").addEventListener("click", function () { marker.hidden = true; sig({ t: "clear" }); });
+    function norm(ev) {
+      var r = video.getBoundingClientRect(), vw = video.videoWidth, vh = video.videoHeight;
+      if (!vw || !vh) return null;
+      var scale = Math.min(r.width / vw, r.height / vh);
+      var dw = vw * scale, dh = vh * scale;
+      var ox = r.left + (r.width - dw) / 2, oy = r.top + (r.height - dh) / 2;
+      var x = (ev.clientX - ox) / dw, y = (ev.clientY - oy) / dh;
+      if (x < 0 || x > 1 || y < 0 || y > 1) return null;
+      return { x: x, y: y };
+    }
+    function onMove(ev) {
+      if (!pointing || video.hidden) return;
+      var n = norm(ev);
+      if (!n) { marker.hidden = true; return; }
+      var sr = stage.getBoundingClientRect();
+      marker.style.left = (ev.clientX - sr.left) + "px";
+      marker.style.top = (ev.clientY - sr.top) + "px";
+      marker.hidden = false;
+      var now = Date.now();
+      if (now - lastSent > 60) { lastSent = now; sig({ t: "point", x: +n.x.toFixed(4), y: +n.y.toFixed(4) }); }
+    }
+    stage.addEventListener("pointermove", onMove);
+    stage.addEventListener("pointerdown", onMove);
     $("copy").addEventListener("click", function () {
       var txt = $("link").textContent, b = $("copy");
       function ok() { b.style.color = "var(--good)"; setTimeout(function () { b.style.color = ""; }, 1200); }

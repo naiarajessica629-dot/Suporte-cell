@@ -294,7 +294,7 @@ function onMessage(conn, raw) {
     return;
   }
 
-  if (["offer", "answer", "ice", "bye", "stats"].includes(m.t) && conn.code) {
+  if (["offer", "answer", "ice", "bye", "stats", "point", "clear"].includes(m.t) && conn.code) {
     const room = rooms.get(conn.code);
     if (!room) return;
     const peer = conn.role === "publisher" ? room.viewer : room.publisher;
